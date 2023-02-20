@@ -26,13 +26,8 @@ if __name__ == "__main__":
 
 
 
-    for row in to_translation:
-        for k, v  in data[row].items():
-            if v not in translation_dictionary[row]:
-                translation_dictionary[v] = translator.translate(v).text
+    while True:
 
-        for k, v in data[row].items():
-            print(v)
 
 
 
