@@ -1,44 +1,50 @@
 import json
 import pandas as pd
 from googletrans import Translator
+import time
+from tqdm import tqdm
 translator = Translator()
 
-if __name__ == "__main__":
+def CSV_translator(csv_to_translate, columns, number_of_tries=3, sleep_timer=1):
 
-    # TODO: redo temporary path-to-files and translation options
-    path_to_file = "data/TG_MarchenkoUPD"
-    csv_to_translate = path_to_file + ".csv"
-    temporary_json = path_to_file + ".json"
-    # to_translation = ["work", "hopes"]
-
-    # # check if exists
-    # if os.path.isfile(temporary_json):
-    #     # with open(temporary_json, mode='w') as json_file:
-    #     #     translation_dictionary = json.load(json_file)
-    #     print("Temporary file detected and will be loaded")
-    # else:
-    #     translation_dictionary = {}
-    #     print("No temporary file detected. It will be created and saved")
-
+    """
+    CSV translator for files that contains data in languages other that English.
+    Saves the result in a json dictionary. 
+    TODO: handles for translation on the different languages.
+    csv_to_translate: path to a CSV_file that has columns you want to translate
+    columns: should be a list or a tuple to iterate on
+    number_of_tries: since translator is unstable most probably 
+    it will take several times to translate all the data need thus
+    you can change the number of tries before failure. Default number is 3.
+    sleep_timer: number of seconds between requests. Default is 1 second.
+    RETURN: dictionary with unique pairs, where keys are original data and values are translated data
+        
+    """
     with open(csv_to_translate, mode="r") as csv_file:
         data = pd.read_csv(csv_file, low_memory=False)
 
     try:
-        with open(temporary_json, 'r') as f:
+        with open("temp.json", 'r') as f:
             translation_dictionary = json.load(f)
-    except json.decoder.JSONDecodeError as e:
+        print("temporary json file found and loaded")
+    except (json.decoder.JSONDecodeError, FileNotFoundError) as e:
         # if no file exists, just start with an empty dict
         print(e, type(e))
+        print("no temporary json file found. It will be created")
         translation_dictionary = {}
+    
+    with open(csv_to_translate, mode="r") as csv_file:
+        data = pd.read_csv(csv_file, low_memory=False)
+    
+    for column in columns:
+        for row in tqdm(data[column].unique()):
+            if row in translation_dictionary:
+                continue
+            else:
+                translation_dictionary[row] = translator.translate(row).text
+                time.sleep(sleep_timer)
+                with open("temp.json", 'w') as t:
+                    temp = json.dump(translation_dictionary, t)
 
-    for row in data['work'].unique():
-        print(row)
-        if row in translation_dictionary:
-            print("yiss")
-        else:
-            print("nah")
-            translation_dictionary[row] = translator.translate(row).text
-            time.sleep(1)
-            with open(temporary_json, 'w') as t:
-                temp = json.dump(translation_dictionary, t)
-            print(type(temp))
+    return translation_dictionary
+                
