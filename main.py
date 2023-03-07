@@ -1,9 +1,13 @@
+#imports
 import json
+import os
 import pandas as pd
 from googletrans import Translator
 import time
 from tqdm import tqdm
 import datetime as dt
+
+# prerequisites
 translator = Translator()
 LANGUAGES = {
     "af":"_AFR",
@@ -72,7 +76,23 @@ LANGUAGES = {
     "yi":"_YID",
     }
 
-def CSV_translator(csv_to_translate, columns, number_of_tries=3, sleep_timer=1, dest='en'):
+# retry decorator
+def retry(max_retries=10):
+    """
+    simple decorator-iterator. When number max_retries depletes it returns a warning.
+    """
+    def retry_decorator(func):
+        def _wrapper(*args, **kwargs):
+            for _ in range(max_retries):
+                try:
+                    func(*args, **kwargs)
+                except:
+                    time.sleep(10)
+                    print(f"{_+1} of {max_retries} tries used")
+        return _wrapper
+    return retry_decorator
+
+def CSV_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
     """
     CSV translator for files that contains data in languages other that English.
     Saves the result in a json dictionary.
@@ -87,10 +107,12 @@ def CSV_translator(csv_to_translate, columns, number_of_tries=3, sleep_timer=1, 
     RETURN:
 
     """
+    #open a csv to translate
     with open(csv_to_translate, mode="r") as csv_file:
         data = pd.read_csv(csv_file, low_memory=False)
 
     try:
+        #check if temp.json where all the translations are stored exists
         with open("temp.json", 'r') as f:
             translation_dictionary = json.load(f)
         print("temporary json file found and loaded")
@@ -99,8 +121,10 @@ def CSV_translator(csv_to_translate, columns, number_of_tries=3, sleep_timer=1, 
         print(e, type(e))
         print("no temporary json file found. It will be created")
         translation_dictionary = {}
+        translation_dictionary[dest] = {}
+        dest_translation_dictionary = translation_dictionary[dest]
 
-    def translator_iterator(columns, translation_dictionary, number_of_tries, sleep_timer):
+    def translator_iterator(columns, dest_translation_dictionary, number_of_tries, sleep_timer):
         for column in columns:
             try:
                 for row in tqdm(data[column].unique()):
@@ -108,11 +132,13 @@ def CSV_translator(csv_to_translate, columns, number_of_tries=3, sleep_timer=1, 
                         continue
                     else:
 
-                        translation_dictionary[row] = translator.translate(row).text
+                        dest_translation_dictionary[row] = translator.translate(row, dest=dest).text
+                        print(dest_translation_dictionary[row])
+                        #dump translated into json file
                         time.sleep(sleep_timer)
                         with open("temp.json", 'w') as t:
-                            temp = json.dump(translation_dictionary, t)
-    #
+                            temp = json.dump(translation_dictionary, t, indent=4)
+
             except (ValueError, AttributeError, NameError) as e:
                 now = dt.datetime.now()
                 current_time = now.strftime("%H:%M:%S")
@@ -135,3 +161,10 @@ def CSV_translator(csv_to_translate, columns, number_of_tries=3, sleep_timer=1, 
         print(data.info())
 
     data.to_csv("New_file.csv")
+
+
+if __name__ == "__main__":
+    csv_to_translate = input('please enter the name of CSV file\n')
+    print(csv_to_translate)
+    columns = list(input("please enter the columns"))
+    print(columns)
