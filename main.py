@@ -92,6 +92,24 @@ def retry(max_retries=10):
         return _wrapper
     return retry_decorator
 
+def existence_check(filename):
+    """
+    if temporary JSON-file exists,returns open JSON-file. If not - returns empty dictionary
+    """
+    try:
+        #check if temp.json where all the translations are stored exists
+        with open(filename, 'r') as f:
+            translation_dictionary = json.load(f)
+        print("temporary json file found and loaded")
+    except (json.decoder.JSONDecodeError, FileNotFoundError) as e:
+        # if no file exists, just start with an empty dict
+        print(e, type(e))
+        print("no temporary json file found. It will be created")
+        translation_dictionary = {}
+    return translation_dictionary
+
+
+
 def CSV_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
     """
     CSV translator for files that contains data in languages other that English.
@@ -111,16 +129,16 @@ def CSV_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
     with open(csv_to_translate, mode="r") as csv_file:
         data = pd.read_csv(csv_file, low_memory=False)
 
-    try:
-        #check if temp.json where all the translations are stored exists
-        with open("temp.json", 'r') as f:
-            translation_dictionary = json.load(f)
-        print("temporary json file found and loaded")
-    except (json.decoder.JSONDecodeError, FileNotFoundError) as e:
-        # if no file exists, just start with an empty dict
-        print(e, type(e))
-        print("no temporary json file found. It will be created")
-        translation_dictionary = {}
+    # try:
+    #     #check if temp.json where all the translations are stored exists
+    #     with open("temp.json", 'r') as f:
+    #         translation_dictionary = json.load(f)
+    #     print("temporary json file found and loaded")
+    # except (json.decoder.JSONDecodeError, FileNotFoundError) as e:
+    #     # if no file exists, just start with an empty dict
+    #     print(e, type(e))
+    #     print("no temporary json file found. It will be created")
+    #     translation_dictionary = {}
         translation_dictionary[dest] = {}
         dest_translation_dictionary = translation_dictionary[dest]
 
