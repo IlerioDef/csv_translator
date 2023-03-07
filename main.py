@@ -6,9 +6,12 @@ from googletrans import Translator
 import time
 from tqdm import tqdm
 import datetime as dt
+import logging
 
 # prerequisites
 translator = Translator()
+logging.basicConfig(filename='errors.log', encoding='utf-8', level=logging.DEBUG)
+
 LANGUAGES = {
     "af":"_AFR",
     "ga":"_GAE",
@@ -129,17 +132,8 @@ def CSV_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
     with open(csv_to_translate, mode="r") as csv_file:
         data = pd.read_csv(csv_file, low_memory=False)
 
-    # try:
-    #     #check if temp.json where all the translations are stored exists
-    #     with open("temp.json", 'r') as f:
-    #         translation_dictionary = json.load(f)
-    #     print("temporary json file found and loaded")
-    # except (json.decoder.JSONDecodeError, FileNotFoundError) as e:
-    #     # if no file exists, just start with an empty dict
-    #     print(e, type(e))
-    #     print("no temporary json file found. It will be created")
-    #     translation_dictionary = {}
-        translation_dictionary[dest] = {}
+    translation_dictionary = existence_check("temp.json") #TODO: redo the file name
+    translation_dictionary[dest] = {}
         dest_translation_dictionary = translation_dictionary[dest]
 
     def translator_iterator(columns, dest_translation_dictionary, number_of_tries, sleep_timer):
