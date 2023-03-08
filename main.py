@@ -9,8 +9,13 @@ import datetime as dt
 import logging
 
 # prerequisites
+
 translator = Translator()
 logging.basicConfig(filename='errors.log', encoding='utf-8', level=logging.DEBUG)
+parser = argparse.ArgumentParser(
+                prog = 'csv_translator',
+                description = 'foo bar for now ',
+                epilog = 'Text at the bottom of help')
 
 LANGUAGES = {
     "af": "_AFR",
@@ -132,14 +137,6 @@ def csv_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
     RETURN:
 
     """
-    # open a csv to translate
-    with open(csv_to_translate, mode="r") as csv_file:
-        data = pd.read_csv(csv_file, low_memory=False)
-
-    translation_dictionary = existence_check("temp.json")  # TODO: redo the file name
-    name_ending = LANGUAGES[dest]
-    translation_dictionary[dest] = translation_dictionary[dest]
-
     def translator_iterator(columns, dest_translation_dictionary, number_of_tries, sleep_timer):
         for column in columns:
             try:
@@ -166,9 +163,17 @@ def csv_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
                 while number_of_tries != 0:
                     translator_iterator(columns, translation_dictionary, number_of_tries, sleep_timer)
                     number_of_tries -= 1
+    # open a csv to translate
+    with open(csv_to_translate, mode="r") as csv_file:
+        data = pd.read_csv(csv_file, low_memory=False)
+
+    translation_dictionary = existence_check("temp.json")  # TODO: redo the file name
+    name_ending = LANGUAGES[dest]
+    translation_dictionary[dest] = translation_dictionary[dest]
+
+
 
         return translation_dictionary
-
     temp = translator_iterator(columns, translation_dictionary, number_of_tries, sleep_timer)
 
     for column in columns:
@@ -180,8 +185,4 @@ def csv_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-                    prog = 'csv_translator',
-                    description = 'foo bar for now ',
-                    epilog = 'Text at the bottom of help')
 
