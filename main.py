@@ -47,7 +47,9 @@ def save_translated_file(path: str, data: pd.DataFrame, columns: list, dictionar
 
 
 def translate(value: str, lang: str, delay: int) -> str:
-    pass
+    data = translator.translate(value, dest=lang).text
+    time.sleep(delay)
+    return data
 
 
 def populate_dictionary(dictionary: dict, lang: str) -> None:
@@ -85,7 +87,6 @@ if __name__ == '__main__':
     # TODO: Настройка логирования и настройка скорости перевода.
     args = parser.parse_args()
     # main(args.source, args.lang)
-
 
 # def csv_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
 #     """
