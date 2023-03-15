@@ -43,7 +43,11 @@ def retry(max_retries=10):
 
 
 def save_translated_file(path: str, data: pd.DataFrame, columns: list, dictionary: dict):
-    pass
+    with open(f"{path}", mode="r") as csv_file:
+        original_csv_file = pd.read_csv(csv_file)
+        for column in columns:
+            original_csv_file[column+"NEW"] = data[column].map(dictionary)
+        original_csv_file.to_csv(f"UPD_{path}")
 
 
 def translate(value: str, lang: str, delay: int) -> str:
@@ -53,9 +57,13 @@ def translate(value: str, lang: str, delay: int) -> str:
 
 
 def populate_dictionary(dictionary: dict, lang: str) -> None:
+    with open(f"{lang}.json", "w+") as fh:
+        json.dump(dictionary, fh,
+                        indent=4)
+
     # TODO: Сохранение словаря в файл после обновления.
     # TODO: Можно сделать в одну строчку с помощью метода словаря. Какого?
-    pass
+
 
 
 def get_dictionary(lang: str) -> dict:
@@ -71,11 +79,22 @@ def get_dictionary(lang: str) -> dict:
 def read_source_file(path: str) -> pd.DataFrame:
     # TODO: Проверка существования файла.
     with open(path) as fh:
-        return pd.read_csv(fh)
+        try:
+            data = pd.read_csv(fh)
+            return data
+        except FileNotFoundError:
+            print("File not found")
+        except pd.errors.EmptyDataError:
+            print("No data")
 
 
-def main(source: str, lang: str, columns: list, delay: int):
+
+def main(source: str, lang: str, columns: list, delay: int=10):
+
     # + 1. Читаешь исходный csv-файл.
+    csv_file = read_source_file(source)
+    print("success")
+    print(csv_file.head())
     # + 2. Получаешь словарь.
     # 3. Переводишь csv-файл с помощью словаря, подтягивая недостающие переводы.
     # 4. Записываешь переведенную колонку в csv-файл.
@@ -83,10 +102,12 @@ def main(source: str, lang: str, columns: list, delay: int):
     pass
 
 
+
 if __name__ == '__main__':
     # TODO: Настройка логирования и настройка скорости перевода.
     args = parser.parse_args()
-    # main(args.source, args.lang)
+    main(args.source, args.lang)
+
 
 # def csv_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
 #     """
