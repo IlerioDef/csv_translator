@@ -1,178 +1,128 @@
-# План рефакторинга
-# + 1. Приведем в порядок requirements.txt
-# + 2. Выделить из csv_translator функции по их ответственности.
-# + 3. Реализуем CLI-интерфейс.
-# 4. Сделаем из этого хороший добротный скрипт!
-
 import argparse
 import json
 import logging
+import os
+import random
 import time
-
+from typing import Iterable, Iterator
 import pandas as pd
+import csv
 from googletrans import Translator
 
-translator = Translator()
-logging.basicConfig(filename='errors.log', encoding='utf-8', level=logging.DEBUG)
 
-parser = argparse.ArgumentParser()
-parser.add_argument("source")
-parser.add_argument("--columns", "-c", nargs="+", required=True)
-parser.add_argument("--lang", "-l", default="en")
-parser.add_argument("--fast", "-f", action="store_true")
-parser.add_argument("--debug", "-d", action="store_true")
+def get_random_time() -> float:
+    timer_seconds = [1.0, 0.5, 3.0, 2.0, 0.75]
+    shuffle = random.choice(timer_seconds)
+    return shuffle
 
 
-def retry(max_retries=10):
-    """
-    simple decorator-iterator. When number max_retries depletes it returns a warning.
-    """
+def timer_func(func):
+    # This function shows the execution time of
+    # the function object passed
+    def wrap_func(*args, **kwargs):
+        t1 = time.time()
+        result = func(*args, **kwargs)
+        t2 = time.time()
+        print(f'Function {func.__name__!r} executed in {(t2 - t1):.4f}s')
+        return result
 
-    def retry_decorator(func):
-        def _wrapper(*args, **kwargs):
-            for _ in range(max_retries):
-                try:
-                    func(*args, **kwargs)
-                except:
-                    time.sleep(10)
-                    print(f"{_ + 1} of {max_retries} tries used")
-
-        return _wrapper
-
-    return retry_decorator
+    return wrap_func
 
 
-def save_translated_file(path: str, data: pd.DataFrame, columns: list, dictionary: dict):
-    with open(f"{path}", mode="r") as csv_file:
-        original_csv_file = pd.read_csv(csv_file)
-        for column in columns:
-            original_csv_file[column+"NEW"] = data[column].map(dictionary)
-        original_csv_file.to_csv(f"UPD_{path}")
+PATH_TO_SOURCE_FILE = "./notebooks/data500.csv"  # input("Please enter path to source CSV file")
+TARGET_LANGUAGE = "eng"  # input("Please enter target language, i.e. 'eng' ")
+PATH_TO_TRANSLATION_FILE = "./eng.csv"
+PATH_TO_FINAL_FILE = "./data3_translated.csv"
+CHOICES_MADE = "0,1"
+GOOGLE_LENGTH = 4000
+LINES_PER_REQUEST = 150  # количество строк, по которым происходит итерация за один запуск цикла.
+TARGET_HEADER = 'Объекты административно-территориального деления,^ кроме сельских населенных пунктов'
+TARGET_HEADER_ENG = "Объекты деления ENG"
 
 
-def translate(value: str, lang: str, delay: int) -> str:
-    data = translator.translate(value, dest=lang).text
-    time.sleep(delay)
-    return data
+@timer_func
+def pack_to_string(pack_components: list) -> str:
+    packed_string = ""
+    print("type(pack_components)", type(pack_components))
+    for v in pack_components:
+        if len(packed_string) < GOOGLE_LENGTH:
+            packed_string += f"{v}\n "
+
+        else:
+            break
+
+    return packed_string
 
 
-def populate_dictionary(dictionary: dict, lang: str) -> None:
-    with open(f"{lang}.json", "w+") as fh:
-        json.dump(dictionary, fh,
-                        indent=4)
-
-    # TODO: Сохранение словаря в файл после обновления.
-    # TODO: Можно сделать в одну строчку с помощью метода словаря. Какого?
-
-
-
-def get_dictionary(lang: str) -> dict:
-    dictionary = {}
-
-    try:
-        with open(f"{lang}.json") as fh:
-            return json.load(fh)
-    except FileNotFoundError:
-        return dictionary
+@timer_func
+def translate_pack(_packed_string: str or None) -> str or None:
+    translator = Translator()
+    if _packed_string == None:
+        return None
+    else:
+        translated_string = translator.translate(_packed_string).text
+    return translated_string
 
 
-def read_source_file(path: str) -> pd.DataFrame:
-    # TODO: Проверка существования файла.
-    with open(path) as fh:
+@timer_func
+def unpack_string(_packed_string: str) -> pd.Series:
+    _string_to_list = _packed_string.strip().split("\n")
+    string_cleared = [x.strip() for x in _string_to_list]
+
+    return string_cleared
+
+
+@timer_func
+def iterate_batches(iterable_data: Iterator, batch_size: int) -> dict:
+    flag = True
+    while flag:
+        batch = []
         try:
-            data = pd.read_csv(fh)
-            return data
-        except FileNotFoundError:
-            print("File not found")
-        except pd.errors.EmptyDataError:
-            print("No data")
+            for _ in range(batch_size):
+                row = next(iterable_data)
+                batch.append(row)
+        except StopIteration as e:
+            print(f"File has ended. {e}")
+            flag = False
+        yield batch
 
 
-
-def main(source: str, lang: str, columns: list, delay: int=10):
-
-    # + 1. Читаешь исходный csv-файл.
-    csv_file = read_source_file(source)
-    print("success")
-    print(csv_file.head())
-    # + 2. Получаешь словарь.
-    # 3. Переводишь csv-файл с помощью словаря, подтягивая недостающие переводы.
-    # 4. Записываешь переведенную колонку в csv-файл.
-    # 5. Сохраняешь новый csv-файл.
-    pass
+@timer_func
+def get_column_data(batch, header) -> list:
+    column_data = [row[header].strip() for row in batch]
+    return column_data
 
 
+if __name__ == "__main__":
+    with open(PATH_TO_SOURCE_FILE, "r+", newline='') as csvfile:
+        with open(PATH_TO_TRANSLATION_FILE, "w+", newline='') as csvfile2:
 
-if __name__ == '__main__':
-    # TODO: Настройка логирования и настройка скорости перевода.
-    args = parser.parse_args()
-    main(args.source, args.lang)
+            dict_reader = csv.DictReader(csvfile)
+            csv_writer = csv.writer(csvfile2)
+            csv_writer.writerow([f'{TARGET_HEADER_ENG}'])
 
+            batches = iterate_batches(dict_reader, LINES_PER_REQUEST)
+            for batch in batches:
+                column_batch = get_column_data(batch, TARGET_HEADER)
+                print("len(column_batch)", len(column_batch))
+                pack = pack_to_string(column_batch)
+                # print("len(pack)",len(pack))
+                translated_pack = translate_pack(pack)
+                # print("len(translated_pack)",len(translated_pack))
+                sleeping_timer = get_random_time()
+                print(f"timer set to: {sleeping_timer}")
+                time.sleep(sleeping_timer)
+                unpacked_string = unpack_string(translated_pack)
+                print("len(unpacked_string", len(unpacked_string))
+                if len(unpacked_string) == len(column_batch):
+                    print("len(unpacked_string) == len(column_batch)", "YES")
+                else:
+                    print("len(unpacked_string) == len(column_batch)", "NO")
+                    print(
+                        f" len(US) {len(unpacked_string)}, len(CB) {len(column_batch)} \n unpacked_string {unpacked_string} \n column_batch  {column_batch}")
+                    raise ValueError
 
-# def csv_translator(csv_to_translate, columns, sleep_timer=1, dest='en'):
-#     """
-#     CSV translator for files that contains data in languages other that English.
-#     Saves the result in a json dictionary.
-#     TODO: handles for translation on the different languages.
-#     csv_to_translate: path to a CSV_file that has columns you want to translate
-#     columns: should be a list or a tuple to iterate on
-#     number_of_tries: since translator is unstable most probably
-#     it will take several times to translate all the data need thus
-#     you can change the number of tries before failure. Default number is 3.
-#     sleep_timer: number of seconds between requests. Default is 1 second.
-#     dest: destination language, "en" (English) as a default value.
-#     RETURN:
-#
-#     """
-#     # + 1. Читаешь исходный csv-файл.
-#     # + 2. Получаешь словарь.
-#     # 3. Переводишь csv-файл с помощью словаря, подтягивая недостающие переводы.
-#     # 4. Записываешь переведенную колонку в csv-файл.
-#     # 5. Сохраняешь новый csv-файл.
-#
-#     def translator_iterator(columns, dest_translation_dictionary, number_of_tries, sleep_timer):
-#         for column in columns:
-#             try:
-#                 for row in tqdm(data[column].unique()):
-#                     # Заменить на populate_dictionary.
-#                     if row in translation_dictionary:
-#                         continue
-#                     else:
-#
-#                         dest_translation_dictionary[row] = translator.translate(row, dest=dest).text
-#                         print(dest_translation_dictionary[row])
-#                         # dump translated into json file
-#                         time.sleep(sleep_timer)
-#                         with open("temp.json", 'w') as t:
-#                             temp = json.dump(translation_dictionary, t, indent=4)
-#
-#             except (ValueError, AttributeError, NameError) as e:
-#                 now = dt.datetime.now()
-#                 current_time = now.strftime("%H:%M:%S")
-#                 logging.error(e, type(e))
-#                 with open("error.log", 'w') as fh:
-#                     fh.write(f"{e}, {type(e)}, {current_time}")
-#
-#                 time.sleep(1)
-#                 while number_of_tries != 0:
-#                     translator_iterator(columns, translation_dictionary, number_of_tries, sleep_timer)
-#                     number_of_tries -= 1
-#     # open a csv to translate
-#     with open(csv_to_translate, mode="r") as csv_file:
-#         data = pd.read_csv(csv_file, low_memory=False)
-#
-#     translation_dictionary = existence_check("temp.json")  # TODO: redo the file name
-#     name_ending = LANGUAGES[dest]
-#     translation_dictionary[dest] = translation_dictionary[dest]
-#
-#
-#
-#         return translation_dictionary
-#     temp = translator_iterator(columns, translation_dictionary, number_of_tries, sleep_timer)
-#
-#     for column in columns:
-#         translated_header = column + LANGUAGES[dest]
-#         data[translated_header] = data[column].map(translation_dictionary)
-#         print(data.info())
-#
-#     data.to_csv("New_file.csv")
+                # print("len(unpacked_string)",len(unpacked_string))
+
+                for x in unpacked_string:
+                    csv_writer.writerow([x, ])
