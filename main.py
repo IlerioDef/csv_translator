@@ -10,8 +10,6 @@ import pandas as pd
 import csv
 from googletrans import Translator
 
-logging.basicConfig(level=logging.INFO)
-
 PATH_TO_SOURCE_FILE = "./notebooks/data500.csv"  # input("Please enter path to source CSV file")
 TARGET_LANGUAGE = "eng"  # input("Please enter target language, i.e. 'eng' ")
 PATH_TO_TRANSLATION_FILE = "./.translation.csv"
@@ -22,6 +20,32 @@ LINES_PER_REQUEST = 150  # количество строк, по которым 
 TARGET_HEADER = 'Объекты административно-территориального деления,^ кроме сельских населенных пунктов'
 TARGET_HEADER_ENG = "Объекты деления ENG"
 SPLIT_KEY = "\n"
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-ps", "--path_source",
+                    help="path to source csv file",
+                    type=str)
+parser.add_argument("-pf", "--path_final",
+                    help="path to final csv file, that will be created once translation is finish",
+                    type=str)
+parser.add_argument("-lpr", "--lines_per_request",
+                    help=f"number of column rows that will be packed in one package"
+                            f"with the total max length of {GOOGLE_LENGTH} symbols ",
+                    type=int)
+args = parser.parse_args()
+if args.path_source:
+    PATH_TO_SOURCE_FILE = args.path_source
+
+if args.path_final:
+    PATH_TO_FINAL_FILE = args.path_final
+
+if args.lines_per_request:
+    LINES_PER_REQUEST = args.lines_per_request
+
+if args.lines_per_request:
+    LINES_PER_REQUEST = args.lines_per_request
+logging.basicConfig(level=logging.INFO)
+
 
 def check_file(path_to_file="") -> str or FileNotFoundError:
     if len(path_to_file) == 0:
@@ -52,8 +76,8 @@ def timer_func(func):
 
     return wrap_func
 
-def create_final_file_name(path_to_sf:str, path_to_tf:str):
 
+def create_final_file_name(path_to_sf: str, path_to_tf: str):
     source_file = pd.read_csv(path_to_sf)
     translation_file = pd.read_csv(path_to_tf)
     if verify_lens(source_file, translation_file):
@@ -62,15 +86,12 @@ def create_final_file_name(path_to_sf:str, path_to_tf:str):
     else:
         raise ValueError
 
+
 def verify_lens(source_file, translation_file):
     if len(source_file) == len(translation_file):
         return True
     else:
         return False
-
-
-
-
 
 
 @timer_func
